@@ -22,10 +22,9 @@ interface
    TCustomImageScrooll = class;
    
    TSelectionIconPosition = (ipTopLeft, ipTopRight, ipBottomLeft, ipBottomRight, ipCenter);
-   TOptionsSelection = class(TInterfacedPersistent)
+   TOptionsSelection = class(TPersistent)
     private  
      [weak]FScrool : TCustomImageScrooll;
-     //FNotifyList: TList<Pointer>;
      fMultiSelect : Boolean;
      fBorderColor : TAlphaColor;
      fOpacity : Boolean;
@@ -39,32 +38,18 @@ interface
      procedure SetIconPosition(const Value: TSelectionIconPosition);
      procedure SetIcon(const Value: TBitmap);
      procedure SetReduce(const Value: Boolean);
-     {procedure ReadIconBitmap(Stream: TStream);
-     procedure WriteIconBitmap(Stream: TStream);
-     function IconStored: Boolean;
-     procedure ReadBorderColor(Reader: TReader);
-     procedure ReadMultiSelect(Reader: TReader);
-     procedure ReadOpacity(Reader: TReader);
-     procedure ReadReduce(Reader: TReader);
-     procedure WriteReduce(Writer: TWriter);
-     procedure WriteBorderColor(Writer: TWriter);
-     procedure WriteMultiSelect(Writer: TWriter);
-     procedure WriteOpacity(Writer: TWriter);
-     procedure ReadIconPosition(Reader: TReader);
-     procedure WriteIconPosition(Writer: TWriter);  }
     protected
      procedure AssignTo(Dest: TPersistent); override;
-     //procedure DefineProperties(Filer: TFiler); override;
     public 
      constructor Create(const [weak]AScrool : TCustomImageScrooll); reintroduce;
      destructor Destroy; override;
     published
-     property BorderColor : TAlphaColor read fBorderColor write SetSelectionColor stored true;
-     property Icon : TBitmap read fIcon write SetIcon;// stored IconStored;
-     property IconPosition : TSelectionIconPosition read fIconPosition write SetIconPosition;// stored IconStored;
-     property MultiSelect : Boolean read fMultiSelect write SetMiltiSelect;// stored true;
-     property Opacity : Boolean read fOpacity write SetOpacity;// stored true;
-     property ReduceImage : Boolean read fReduceImage write SetReduce;// stored true;
+     property BorderColor : TAlphaColor read fBorderColor write SetSelectionColor;
+     property Icon : TBitmap read fIcon write SetIcon;
+     property IconPosition : TSelectionIconPosition read fIconPosition write SetIconPosition;
+     property MultiSelect : Boolean read fMultiSelect write SetMiltiSelect;
+     property Opacity : Boolean read fOpacity write SetOpacity;
+     property ReduceImage : Boolean read fReduceImage write SetReduce;
    end;
 
    TImageItems = class;
@@ -190,7 +175,7 @@ begin
   RegisterComponents('TrControls', [TImageBar, TImageGrid]);
 end;
 
-{ TImageGrid }
+{ TCustomImageScrooll }
 
 constructor TCustomImageScrooll.Create(AOwner: TComponent);
 begin
@@ -313,82 +298,6 @@ begin
   inherited;
 end;
 
-{procedure TOptionsSelection.DefineProperties(Filer: TFiler);
-begin
-  inherited;
-  Filer.DefineProperty('MultiSelect', ReadMultiSelect, WriteMultiSelect, true);
-  Filer.DefineProperty('Opacity', ReadOpacity, WriteOpacity, true);
-  Filer.DefineProperty('Reduce', ReadReduce, WriteReduce, true);
-  Filer.DefineProperty('BorderColor', ReadBorderColor, WriteBorderColor, true);
-  Filer.DefineProperty('IconPosition', ReadIconPosition, WriteIconPosition, IconStored);
-  Filer.DefineBinaryProperty('SelIcoBitmap', ReadIconBitmap, WriteIconBitmap, IconStored);
-end;
-
-procedure TOptionsSelection.ReadOpacity(Reader: TReader);
-begin
-  fOpacity := Reader.ReadBoolean;
-end;
-
-procedure TOptionsSelection.WriteOpacity(Writer: TWriter);
-begin
-  Writer.WriteBoolean(fOpacity);
-end;
-
-procedure TOptionsSelection.ReadReduce(Reader: TReader);
-begin
-  fReduceImage := Reader.ReadBoolean;
-end;
-
-procedure TOptionsSelection.WriteReduce(Writer: TWriter);
-begin
-  Writer.WriteBoolean(fReduceImage);
-end;
-
-procedure TOptionsSelection.ReadBorderColor(Reader: TReader);
-begin
-  fBorderColor := TAlphaColor(Reader.ReadInteger);
-end;
-
-procedure TOptionsSelection.WriteBorderColor(Writer: TWriter);
-begin
-  Writer.WriteInteger(Integer(fBorderColor));
-end;
-
-procedure TOptionsSelection.ReadIconPosition(Reader: TReader);
-begin
-  fIconPosition := TSelectionIconPosition(Reader.ReadInteger);
-end;
-
-procedure TOptionsSelection.WriteIconPosition(Writer: TWriter);
-begin
-  Writer.WriteInteger(Integer(fIconPosition));
-end;
-
-procedure TOptionsSelection.ReadMultiSelect(Reader: TReader);
-begin
-  fMultiSelect := Reader.ReadBoolean;
-end;
-
-procedure TOptionsSelection.WriteMultiSelect(Writer: TWriter);
-begin
-  Writer.WriteBoolean(fMultiSelect);
-end;
-
-function TOptionsSelection.IconStored: Boolean;
-begin
-  Result := not fIcon.IsEmpty;
-end;
-
-procedure TOptionsSelection.ReadIconBitmap(Stream: TStream);
-begin
-  FIcon.LoadFromStream(Stream);
-end; 
-
-procedure TOptionsSelection.WriteIconBitmap(Stream: TStream);
-begin
-  FIcon.SaveToStream(Stream);
-end;  }
-
 procedure TOptionsSelection.Repaint;
 var
   i : Integer;
@@ -451,7 +360,7 @@ begin
   Repaint;
 end;
 
-{TImageBar}
+{TCustomImageBar}
 
 constructor TCustomImageBar.Create(AOwner: TComponent);
 begin
