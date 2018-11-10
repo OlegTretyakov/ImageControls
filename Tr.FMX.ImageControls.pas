@@ -1,4 +1,4 @@
-unit FMX.ImageControls;
+unit Tr.FMX.ImageControls;
 
 interface
   uses
@@ -22,23 +22,25 @@ interface
    TCustomImageScrooll = class;
    
    TSelectionIconPosition = (ipTopLeft, ipTopRight, ipBottomLeft, ipBottomRight, ipCenter);
-   TOptionsSelection = class(TPersistent) 
+   TOptionsSelection = class(TInterfacedPersistent)
     private  
      [weak]FScrool : TCustomImageScrooll;
+     //FNotifyList: TList<Pointer>;
      fMultiSelect : Boolean;
      fBorderColor : TAlphaColor;
      fOpacity : Boolean;
      fReduceImage : Boolean;
-     fIcon : TCustomMultiResBitmap;
+     fIcon : TBitmap;
      fIconPosition : TSelectionIconPosition;
      procedure Repaint;
      procedure SetSelectionColor(const Value: TAlphaColor);
      procedure SetMiltiSelect(const Value: Boolean);
      procedure SetOpacity(const Value: Boolean);
      procedure SetIconPosition(const Value: TSelectionIconPosition);
-     procedure ReadIconBitmap(Stream: TStream);
+     procedure SetIcon(const Value: TBitmap);
+     procedure SetReduce(const Value: Boolean);
+     {procedure ReadIconBitmap(Stream: TStream);
      procedure WriteIconBitmap(Stream: TStream);
-     procedure SetIcon(const Value: TCustomMultiResBitmap); 
      function IconStored: Boolean;
      procedure ReadBorderColor(Reader: TReader);
      procedure ReadMultiSelect(Reader: TReader);
@@ -48,23 +50,24 @@ interface
      procedure WriteBorderColor(Writer: TWriter);
      procedure WriteMultiSelect(Writer: TWriter);
      procedure WriteOpacity(Writer: TWriter);
-     procedure SetReduce(const Value: Boolean);
+     procedure ReadIconPosition(Reader: TReader);
+     procedure WriteIconPosition(Writer: TWriter);  }
     protected
      procedure AssignTo(Dest: TPersistent); override;
-     procedure DefineProperties(Filer: TFiler); override;
+     //procedure DefineProperties(Filer: TFiler); override;
     public 
      constructor Create(const [weak]AScrool : TCustomImageScrooll); reintroduce;
      destructor Destroy; override;
-    published   
-     property BorderColor : TAlphaColor read fBorderColor write SetSelectionColor;  
-     property Icon : TCustomMultiResBitmap read fIcon write SetIcon;
-     property IconPosition : TSelectionIconPosition read fIconPosition write SetIconPosition stored IconStored;
-     property MultiSelect : Boolean read fMultiSelect write SetMiltiSelect;
-     property Opacity : Boolean read fOpacity write SetOpacity;
-     property ReduceImage : Boolean read fReduceImage write SetReduce;
+    published
+     property BorderColor : TAlphaColor read fBorderColor write SetSelectionColor stored true;
+     property Icon : TBitmap read fIcon write SetIcon;// stored IconStored;
+     property IconPosition : TSelectionIconPosition read fIconPosition write SetIconPosition;// stored IconStored;
+     property MultiSelect : Boolean read fMultiSelect write SetMiltiSelect;// stored true;
+     property Opacity : Boolean read fOpacity write SetOpacity;// stored true;
+     property ReduceImage : Boolean read fReduceImage write SetReduce;// stored true;
    end;
 
-   TImageList = class;
+   TImageItems = class;
    TBaseImageItem = class(TImage)
     strict private
      fTL : TTextLayout;
@@ -72,10 +75,11 @@ interface
      fMouseDownPoint : TPointF;
      fSelected : Boolean;
     private
-     fList : TImageList;
+     fList : TImageItems;
      fOnSelectItemChange : TOnSelectItemChange;
      fOnBeforePaintItemPicture : TOnBeforePicturePaint;
      procedure SetSelected(const Value: Boolean);
+     procedure OnBitmapChanged(Sender: TObject);
     protected
      procedure MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Single); override;
      procedure MouseUp(Button: TMouseButton; Shift: TShiftState; X, Y: Single); override;
@@ -89,8 +93,9 @@ interface
      property OnBeforePaintItemPicture : TOnBeforePicturePaint read fOnBeforePaintItemPicture write fOnBeforePaintItemPicture;
    end;
 
+   TBaseImageItemClass = class of TBaseImageItem;
 
-   TImageList = class(TList<TBaseImageItem>)
+   TImageItems = class(TList<TBaseImageItem>)
     private
      [weak]FScrool : TCustomImageScrooll;
     protected
@@ -100,31 +105,37 @@ interface
      function CreateItem<T : TBaseImageItem>: T;
    end;
 
+   TSelectedImageItems = class(TList<TBaseImageItem>)
+    protected
+     procedure Notify(const Value: TBaseImageItem; Action: TCollectionNotification); override;
+   end;
+
    TImageItemClass = class of TBaseImageItem;
 
    TCustomImageScrooll = class(TCustomScrollBox)
     private
-     fItems : TImageList;
+     fItems : TImageItems;
+     fSelectedItems : TSelectedImageItems;
      fOffset : Single;
      fOptionsSelection : TOptionsSelection;
-     procedure OnItemBitmapChanged(Sender: TObject);
      procedure SetOffset(const Value: Single);
      procedure ClearSelection(const ExceptItem : TBaseImageItem); overload;
+     procedure SetOptionsSelection(const Value: TOptionsSelection);
     protected
      procedure UpdatePictures; virtual; abstract;
      function GetDefaultStyleLookupName: string; override;
      procedure Paint; override;
-     procedure HandleSizeChanged; override;
+     procedure DoRealign; override;
     public
      constructor Create(AOwner: TComponent); override;
      destructor Destroy; override;
      procedure DoEndUpdate; override;
-     property Items : TImageList read fItems;
+     property Items : TImageItems read fItems;
+     property SelectedItems : TSelectedImageItems read fSelectedItems;
      property Offset : Single read fOffset write SetOffset;
-     function SelectedCount : Integer;
      procedure ClearSelection; overload; 
      function ItemVisible(const AItem : TBaseImageItem): Boolean;
-     property OptionsSelection : TOptionsSelection read fOptionsSelection;
+     property OptionsSelection : TOptionsSelection read fOptionsSelection write SetOptionsSelection stored true;
    end;
 
    TBarStretchMode = (smVertical, smHorizontal);
@@ -141,31 +152,59 @@ interface
      property Mode: TBarStretchMode read FMode write SetMode;
    end;
 
+   TCustomImageGrid = class(TCustomImageScrooll)
+    private
+     fItemSize : TSizeF;
+     procedure SetItemSize(const Value: TSizeF);
+    protected
+     procedure UpdatePictures; override;
+     function DoCalcContentBounds: TRectF; override;
+     procedure DoUpdateAniCalculations(const AAniCalculations: TScrollCalculations); override;
+    public
+     constructor Create(AOwner: TComponent); override;
+     property ItemSize : TSizeF read fItemSize write SetItemSize;
+   end;
+
    TImageBar = class(TCustomImageBar)
     published
-     property Offset; 
+     property Offset;
      property Mode;
      property OptionsSelection;
    end;
+
+   TImageGrid = class(TCustomImageGrid)
+    published
+     property Offset;
+     property ItemSize;
+     property OptionsSelection;
+   end;
+
+procedure Register;
 
 implementation
 uses
 System.SysUtils;
 
-type
-  TBaseImageItemClass = class of TBaseImageItem;
+procedure Register;
+begin
+  RegisterComponents('TrControls', [TImageBar, TImageGrid]);
+end;
 
 { TImageGrid }
 
 constructor TCustomImageScrooll.Create(AOwner: TComponent);
 begin
   inherited;
+  fOffset := 5;
   fOptionsSelection := TOptionsSelection.Create(self);
-  fItems := TImageList.Create(self);
+  fItems := TImageItems.Create(self);
+  fSelectedItems := TSelectedImageItems.Create;
 end;
 
 destructor TCustomImageScrooll.Destroy;
 begin
+  ClearSelection;
+  FreeAndNil(fSelectedItems);
   fItems.FScrool := nil;
   FreeAndNil(fItems);
   inherited Destroy;
@@ -173,13 +212,6 @@ end;
 function TCustomImageScrooll.GetDefaultStyleLookupName: string;
 begin
   Result := 'scrollboxstyle';
-end;
-
-procedure TCustomImageScrooll.HandleSizeChanged;
-begin
-  inherited;
-  if not IsUpdating then
-    UpdatePictures;
 end;
 
 function TCustomImageScrooll.ItemVisible(const AItem: TBaseImageItem): Boolean;
@@ -209,6 +241,13 @@ begin
   UpdatePictures;
 end;
 
+procedure TCustomImageScrooll.DoRealign;
+begin
+  inherited DoRealign;
+  if not IsUpdating then
+    UpdatePictures;
+end;
+
 procedure TCustomImageScrooll.ClearSelection(const ExceptItem: TBaseImageItem);
 var
   i : Integer;
@@ -227,39 +266,6 @@ begin
   ClearSelection(nil);
 end;
 
-procedure TCustomImageScrooll.OnItemBitmapChanged(Sender: TObject);
-var
-  i : Integer;
-begin
-  if not (Sender is TBitmap) then
-    Exit;
-  i := 0;
-  while i < fItems.Count do
-  begin
-    if fItems[i].Bitmap = Sender then
-      Break;
-    Inc(i);
-  end;
-  if i >= fItems.Count then
-    Exit;
-  if (fItems[i].Top <= Height) or (fItems[i].Left <= Width)  then
-    Repaint;
-end;
-
-function TCustomImageScrooll.SelectedCount: Integer;
-var
-  i : Integer;
-begin
-  i := 0;
-  result := 0;
-  while i < fItems.Count do
-  begin
-    if fItems[i].Selected then
-      Inc(result);
-    Inc(i);
-  end;
-end;
-
 procedure TCustomImageScrooll.SetOffset(const Value: Single);
 begin
   fOffset := Value;
@@ -267,7 +273,12 @@ begin
     UpdatePictures;
 end; 
 
-{TOptionsSelection} 
+procedure TCustomImageScrooll.SetOptionsSelection(const Value: TOptionsSelection);
+begin
+  fOptionsSelection.AssignTo(Value);
+end;
+
+{TOptionsSelection}
 
 procedure TOptionsSelection.AssignTo(Dest: TPersistent);
 var
@@ -279,29 +290,38 @@ begin
     vDest.Opacity := Opacity;
     vDest.BorderColor := BorderColor;
     vDest.MultiSelect := MultiSelect;
+    vDest.IconPosition := IconPosition;
+    vDest.ReduceImage := ReduceImage;
     vDest.Icon.Assign(Icon);
   end;
 end;
 
-constructor TOptionsSelection.Create(const AScrool: TCustomImageScrooll);
+constructor TOptionsSelection.Create(const [weak]AScrool : TCustomImageScrooll);
 begin
   inherited Create;
   fOpacity := False;
   fReduceImage := True;
   fBorderColor := $FF09C9DF;
   fMultiSelect := False;
-  fIcon := TCustomMultiResBitmap.Create(Self, TCustomBitmapItem);
+  fIcon := TBitmap.Create;
   FScrool := AScrool; 
 end;
 
-procedure TOptionsSelection.DefineProperties(Filer: TFiler);
+destructor TOptionsSelection.Destroy;
+begin
+  FreeAndNil(fIcon);
+  inherited;
+end;
+
+{procedure TOptionsSelection.DefineProperties(Filer: TFiler);
 begin
   inherited;
   Filer.DefineProperty('MultiSelect', ReadMultiSelect, WriteMultiSelect, true);
   Filer.DefineProperty('Opacity', ReadOpacity, WriteOpacity, true);
   Filer.DefineProperty('Reduce', ReadReduce, WriteReduce, true);
   Filer.DefineProperty('BorderColor', ReadBorderColor, WriteBorderColor, true);
-  Filer.DefineBinaryProperty('SelIcoBitmap', ReadIconBitmap, WriteIconBitmap, False);
+  Filer.DefineProperty('IconPosition', ReadIconPosition, WriteIconPosition, IconStored);
+  Filer.DefineBinaryProperty('SelIcoBitmap', ReadIconBitmap, WriteIconBitmap, IconStored);
 end;
 
 procedure TOptionsSelection.ReadOpacity(Reader: TReader);
@@ -334,6 +354,16 @@ begin
   Writer.WriteInteger(Integer(fBorderColor));
 end;
 
+procedure TOptionsSelection.ReadIconPosition(Reader: TReader);
+begin
+  fIconPosition := TSelectionIconPosition(Reader.ReadInteger);
+end;
+
+procedure TOptionsSelection.WriteIconPosition(Writer: TWriter);
+begin
+  Writer.WriteInteger(Integer(fIconPosition));
+end;
+
 procedure TOptionsSelection.ReadMultiSelect(Reader: TReader);
 begin
   fMultiSelect := Reader.ReadBoolean;
@@ -344,32 +374,9 @@ begin
   Writer.WriteBoolean(fMultiSelect);
 end;
 
-destructor TOptionsSelection.Destroy;
-begin
-  FreeAndNil(fIcon);
-  inherited;
-end;
-
 function TOptionsSelection.IconStored: Boolean;
-var
-  I: Integer;
 begin
-  Result := (fIcon.TransparentColor <> TColors.SysNone) or
-            (fIcon.SizeKind <> TSizeKind.Custom) or
-            (fIcon.Width <> fIcon.DefaultSize.cx) or
-            (fIcon.Height <> fIcon.DefaultSize.cy);
-  if not Result then
-  begin
-    for I := 0 to fIcon.Count - 1 do
-    begin
-      if (fIcon[I].FileName <> '') or
-         (not fIcon[I].IsEmpty) then
-      begin
-        Result := True;
-        Exit;
-      end;
-    end;
-  end;
+  Result := not fIcon.IsEmpty;
 end;
 
 procedure TOptionsSelection.ReadIconBitmap(Stream: TStream);
@@ -380,7 +387,7 @@ end;
 procedure TOptionsSelection.WriteIconBitmap(Stream: TStream);
 begin
   FIcon.SaveToStream(Stream);
-end;  
+end;  }
 
 procedure TOptionsSelection.Repaint;
 var
@@ -395,9 +402,10 @@ begin
   end;
 end;
 
-procedure TOptionsSelection.SetIcon(const Value: TCustomMultiResBitmap);
+procedure TOptionsSelection.SetIcon(const Value: TBitmap);
 begin
   fIcon.Assign(Value);
+  Repaint;
 end;
 
 procedure TOptionsSelection.SetIconPosition(const Value: TSelectionIconPosition);
@@ -410,28 +418,12 @@ begin
 end;
 
 procedure TOptionsSelection.SetMiltiSelect(const Value: Boolean);
-var
-  i : Integer;
-  vSC : Integer;
 begin
   fMultiSelect := Value;
   if not fMultiSelect then
   begin
-    vSC := FScrool.SelectedCount;
-    if vSC < 2 then
-      Exit;
-    i := 0;
-    while i < FScrool.Items.Count do
-    begin
-      if FScrool.Items[i].Selected then
-      begin
-        FScrool.Items[i].Selected := False;
-        Inc(vSC);
-        if vSC < 2 then
-          Break;
-      end;
-      Inc(i);
-    end;
+    while FScrool.SelectedItems.Count > 1 do
+      FScrool.SelectedItems.Delete(0);
   end;
 end;
 
@@ -465,7 +457,6 @@ constructor TCustomImageBar.Create(AOwner: TComponent);
 begin
   inherited;
   fMode := smHorizontal;
-  fOffset := 5;
 end;
 
 function TCustomImageBar.DoCalcContentBounds: TRectF;
@@ -562,33 +553,69 @@ begin
   end;
 end;
 
-{ TImageGrid.TImageList }
 
-constructor TImageList.Create(const [weak]AScrool: TCustomImageScrooll);
-begin
-  FScrool := AScrool;
-  inherited Create;
-end;
 
-function TImageList.CreateItem<T>: T;
-begin
-  TBaseImageItem(result) := TBaseImageItemClass(T).Create(FScrool);
-  TBaseImageItem(result).fList := self;
-  TBaseImageItem(result).Align := TAlignLayout.None;
-  TBaseImageItem(result).Bitmap.OnChange := FScrool.OnItemBitmapChanged;
-  self.Add(TBaseImageItem(result));
-end;
+{ TCustomImageGrid }
 
-procedure TImageList.Notify(const Value: TBaseImageItem; Action: TCollectionNotification);
+constructor TCustomImageGrid.Create(AOwner: TComponent);
 begin
-  if Action = TCollectionNotification.cnRemoved then
-    Value.DisposeOf;
   inherited;
-  if Assigned(FScrool) and (not FScrool.IsUpdating) and FScrool.CanRepaint then
-      FScrool.UpdatePictures;
+  fItemSize := TSizeF.Create(90, 90);
 end;
 
-{ TImageGrid.TGridImage }
+function TCustomImageGrid.DoCalcContentBounds: TRectF;
+begin
+  if (Content <> nil) and (ContentLayout <> nil) then
+    Content.Width := ContentLayout.Width; // Only for compatibility with old code
+  Result := inherited DoCalcContentBounds;
+  if ContentLayout <> nil then
+    Result.Width := ContentLayout.Width;
+end;
+
+procedure TCustomImageGrid.DoUpdateAniCalculations(const AAniCalculations: TScrollCalculations);
+begin
+  inherited DoUpdateAniCalculations(AAniCalculations);
+      AAniCalculations.TouchTracking := AAniCalculations.TouchTracking - [ttHorizontal];
+end;
+
+procedure TCustomImageGrid.SetItemSize(const Value: TSizeF);
+begin
+  if fItemSize <> Value then
+    Exit;
+  fItemSize := Value;
+  UpdatePictures;
+end;
+
+procedure TCustomImageGrid.UpdatePictures;
+var
+  i : Integer;
+  vPictureCoord : TPointF;
+  vImg : TBaseImageItem;
+begin
+  if IsUpdating or (fItems.Count < 1) then
+    Exit;
+  vPictureCoord := TPointF.Create(fOffset, fOffset);
+  i := 0;
+  while i < fItems.Count do
+  begin
+    vImg := fItems[i];
+    vImg.Align := TAlignLayout.None;
+    vImg.Left := vPictureCoord.X;
+    vImg.Top := vPictureCoord.Y;
+    vImg.Position.Point := vPictureCoord;
+    vImg.Height := fItemSize.Height;
+    vImg.Width := fItemSize.Width;
+    if (vImg.Left + vImg.Width + Offset + fItemSize.Width > self.Width) then
+    begin
+      vPictureCoord.X := Offset;
+      vPictureCoord.Y := vPictureCoord.Y + fItemSize.Height + Offset;
+    end else
+      vPictureCoord.X := vImg.Left + vImg.Width + Offset;
+    Inc(i);
+  end;
+end;
+
+{ TBaseImageItem }
 
 constructor TBaseImageItem.Create(AOwner: TCustomImageScrooll);
 begin
@@ -600,6 +627,7 @@ begin
   fTL.VerticalAlign := TTextAlign.Center;
   fTL.Padding.Bottom := 3;
   Visible := true;
+  self.Bitmap.OnChange := OnBitmapChanged;
 end;
 
 destructor TBaseImageItem.Destroy;
@@ -607,6 +635,7 @@ var
  i : Integer;
 begin
   try
+    fSelected := False;
     i := fList.IndexOf(self);
     if i <> -1 then
       fList.Delete(i);
@@ -642,32 +671,20 @@ begin
   fMouseUpWait := False;
 end;
 
+procedure TBaseImageItem.OnBitmapChanged(Sender: TObject);
+begin
+  if TCustomImageScrooll(Owner).ItemVisible(Self) then
+    Repaint;
+end;
+
 procedure TBaseImageItem.Paint;
-var
-  vScale: Single;
-  vIconItem: TCustomBitmapItem;
-
-  function IconFound(var oItem: TCustomBitmapItem): Boolean;
-  begin
-    vScale := 0;
-    if Scene <> nil then
-      vScale := Scene.GetSceneScale
-    else
-      vScale := 1.0;
-
-    oItem := TCustomImageScrooll(Owner).OptionsSelection.Icon.ItemByScale(vScale, False, false);
-    if oItem <> nil then
-      vScale := oItem.Scale;
-
-    Result := (oItem <> nil) and not oItem.IsEmpty;
-  end;
-
 var
   iR, bR: TRectF; //Image rect, Border rect
   tP : TPointF; // Text top-felt point
   procedure InternalDrawSelectionImage;
   var
    icR : TRectF;
+   vIcon : TBitmap;
   begin
     Self.Canvas.Fill.Color := TCustomImageScrooll(Owner).OptionsSelection.BorderColor;
     Self.Canvas.FillRect(bR, 0, 0, [], AbsoluteOpacity/2, TCornerType.Round);
@@ -675,38 +692,39 @@ var
       DrawBitmap(Self.Canvas, iR, Bitmap, AbsoluteOpacity/2)
     else
       DrawBitmap(Self.Canvas, iR, Bitmap, AbsoluteOpacity);
-    if IconFound(vIconItem) then
+    vIcon := TCustomImageScrooll(Owner).OptionsSelection.Icon;
+    if not vIcon.IsEmpty then
     begin
       icR := iR;
       case TCustomImageScrooll(Owner).OptionsSelection.IconPosition of
         ipTopLeft:
         begin
-          icR.Bottom := vIconItem.Height;
-          icR.Right := vIconItem.Width;
+          icR.Bottom := vIcon.Height;
+          icR.Right := vIcon.Width;
         end;
         ipTopRight:
         begin
-          icR.Bottom := icR.Height - vIconItem.Height;
-          icR.Left := icR.Width - vIconItem.Width;
+          icR.Bottom := icR.Height - vIcon.Height;
+          icR.Left := icR.Width - vIcon.Width;
         end;
         ipBottomLeft:
         begin
-          icR.Top := icR.Height - vIconItem.Height;
-          icR.Right := vIconItem.Width;
+          icR.Top := icR.Height - vIcon.Height;
+          icR.Right := vIcon.Width;
         end;
         ipBottomRight:
         begin
-          icR.Top := icR.Height - vIconItem.Height;
-          icR.Right := vIconItem.Width;
+          icR.Top := icR.Height - vIcon.Height;
+          icR.Left := icR.Width - vIcon.Width;
         end;
         ipCenter:
         begin
-          icR.Bottom := vIconItem.Height;
-          icR.Right := vIconItem.Width;
+          icR.Bottom := vIcon.Height;
+          icR.Right := vIcon.Width;
           icR := RectCenter(icR, iR);
         end;
       end;
-      DrawBitmap(Self.Canvas, icR, vIconItem, AbsoluteOpacity);
+      DrawBitmap(Self.Canvas, icR, vIcon, AbsoluteOpacity);
     end;
   end;
 begin
@@ -736,21 +754,72 @@ begin
     bR := LocalRect;
     iR := bR;
     if TCustomImageScrooll(Owner).OptionsSelection.ReduceImage then
-      InflateRect(iR, -iR.Left * 0.1, - iR.Bottom * 0.1);
+      InflateRect(iR, -iR.Right * 0.1, - iR.Bottom * 0.1);
     InternalDrawSelectionImage;
   end else
     inherited Paint;
 end;
 
 procedure TBaseImageItem.SetSelected(const Value: Boolean);
+var
+  i : Integer;
 begin
   if fSelected = Value then
     Exit;
   if Value and not TCustomImageScrooll(Owner).OptionsSelection.MultiSelect then
     TCustomImageScrooll(Owner).ClearSelection(self);
   fSelected := Value;
+  i := TCustomImageScrooll(Owner).SelectedItems.IndexOf(self);
+  if fSelected then
+  begin
+    if i = -1 then
+      TCustomImageScrooll(Owner).SelectedItems.Add(self);
+  end else
+  begin
+    if i <> -1 then
+      TCustomImageScrooll(Owner).SelectedItems.Delete(i);
+  end;
   if TCustomImageScrooll(Owner).ItemVisible(self) then
     Repaint;
+end;
+
+{ TImageItems }
+
+constructor TImageItems.Create(const [weak]AScrool: TCustomImageScrooll);
+begin
+  FScrool := AScrool;
+  inherited Create;
+end;
+
+function TImageItems.CreateItem<T>: T;
+begin
+  TBaseImageItem(result) := TBaseImageItemClass(T).Create(FScrool);
+  TBaseImageItem(result).fList := self;
+  TBaseImageItem(result).Align := TAlignLayout.None;
+  self.Add(TBaseImageItem(result));
+end;
+
+procedure TImageItems.Notify(const Value: TBaseImageItem; Action: TCollectionNotification);
+begin
+  if Action = TCollectionNotification.cnRemoved then
+    Value.DisposeOf;
+  inherited;
+  if Assigned(FScrool) and (not FScrool.IsUpdating) and FScrool.CanRepaint then
+      FScrool.UpdatePictures;
+end;
+
+{ TSelectedImageItems }
+
+procedure TSelectedImageItems.Notify(const Value: TBaseImageItem; Action: TCollectionNotification);
+begin
+  case Action of
+    cnAdded:
+      Value.Selected := True;
+    cnRemoved,
+    cnExtracted:
+      Value.Selected := false;
+  end;
+  inherited;
 end;
 
 end.
