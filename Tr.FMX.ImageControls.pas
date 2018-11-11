@@ -500,10 +500,17 @@ var
   i : Integer;
   vPictureCoord : TPointF;
   vImg : TBaseImageItem;
+  vItemsPerRow, vItemInRow : integer;
+  vItemHeight,
+  vItemWidth : Single;
 begin
   if IsUpdating or (fItems.Count < 1) then
     Exit;
-  vPictureCoord := TPointF.Create(fOffset, fOffset);
+  vItemsPerRow := Round(self.ClientWidth  / fItemSize.Width);
+  vItemWidth := self.ClientWidth / vItemsPerRow;
+  vItemHeight := fItemSize.Height * (fItemSize.Width / vItemWidth);
+  vPictureCoord := TPointF.Create(0, 0);
+  vItemInRow := 0;
   i := 0;
   while i < fItems.Count do
   begin
@@ -512,14 +519,16 @@ begin
     vImg.Left := vPictureCoord.X;
     vImg.Top := vPictureCoord.Y;
     vImg.Position.Point := vPictureCoord;
-    vImg.Height := fItemSize.Height;
-    vImg.Width := fItemSize.Width;
-    if (vImg.Left + vImg.Width + Offset + fItemSize.Width > self.Width) then
+    vImg.Height := vItemHeight;
+    vImg.Width := vItemWidth;
+    inc(vItemInRow);
+    if vItemInRow = vItemsPerRow then
     begin
-      vPictureCoord.X := Offset;
-      vPictureCoord.Y := vPictureCoord.Y + fItemSize.Height + Offset;
+      vItemInRow := 0;
+      vPictureCoord.X := 0;
+      vPictureCoord.Y := vPictureCoord.Y + vItemHeight + OffSet;
     end else
-      vPictureCoord.X := vImg.Left + vImg.Width + Offset;
+      vPictureCoord.X := vImg.Left + vItemWidth;
     Inc(i);
   end;
 end;
